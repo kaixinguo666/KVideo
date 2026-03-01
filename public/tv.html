@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>KVideo TV版</title>
+    <style>
+        /* 最原始的 CSS，没有变量，老电视完美解析 */
+        body { background-color: #000000; color: #ffffff; font-family: sans-serif; padding: 30px; }
+        .video-btn { 
+            background-color: #333333; 
+            color: white; 
+            padding: 15px 30px; 
+            margin: 10px; 
+            font-size: 20px; 
+            border: 4px solid transparent; 
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        /* 核心：遥控器选中时的焦点样式 */
+        .video-btn:focus { 
+            border-color: #ff0000; 
+            background-color: #555555; 
+            outline: none; 
+        }
+        #player { width: 100%; max-width: 900px; margin-top: 30px; display: none; }
+    </style>
+</head>
+<body>
+    <h1>KVideo 电视版</h1>
+    
+    <div id="list">
+        </div>
+
+    <video id="player" controls></video>
+
+    <script>
+        // 最原始的 ES5 JS，不准用 const, let, 箭头函数
+        var videos = [
+            { title: "测试视频 1", url: "你的第一个m3u8链接填这里" },
+            { title: "测试视频 2", url: "你的第二个m3u8链接填这里" }
+        ];
+
+        var listDiv = document.getElementById("list");
+        var player = document.getElementById("player");
+
+        // 生成按钮列表
+        for (var i = 0; i < videos.length; i++) {
+            var btn = document.createElement("button");
+            btn.className = "video-btn";
+            btn.innerHTML = videos[i].title;
+            
+            // 使用闭包绑定遥控器点击事件
+            (function(videoUrl) {
+                btn.onclick = function() {
+                    player.style.display = "block";
+                    player.src = videoUrl;
+                    player.play(); // 电视会自动调用全屏或原生播放
+                };
+            })(videos[i].url);
+
+            listDiv.appendChild(btn);
+        }
+
+        // 默认让第一个按钮获取焦点，方便遥控器操作
+        setTimeout(function() {
+            var firstBtn = document.getElementsByClassName("video-btn")[0];
+            if (firstBtn) firstBtn.focus();
+        }, 500);
+    </script>
+</body>
+</html>
