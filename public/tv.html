@@ -2,27 +2,17 @@
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="referrer" content="no-referrer">
     <title>KVideo TV版</title>
     <style>
         body { background-color: #000000; color: #ffffff; font-family: sans-serif; padding: 30px; }
-        
         .video-btn { 
-            background-color: #333333; 
-            color: white; 
-            padding: 15px 30px; 
-            margin: 10px; 
-            font-size: 24px; 
-            border: 4px solid transparent; 
-            border-radius: 8px;
-            cursor: pointer;
+            background-color: #333333; color: white; padding: 15px 30px; 
+            margin: 10px; font-size: 24px; border: 4px solid transparent; 
+            border-radius: 8px; cursor: pointer;
         }
-        /* 电视遥控器选中时的焦点状态（变红框，非常重要） */
-        .video-btn:focus { 
-            border-color: #ff0000; 
-            background-color: #555555; 
-            outline: none; 
-        }
-        
+        /* 电视遥控器选中时的红色边框 */
+        .video-btn:focus { border-color: #ff0000; background-color: #555555; outline: none; }
         #player-container { margin-top: 30px; width: 100%; max-width: 1000px; display: none; }
         #player { width: 100%; background-color: #111; }
         #now-playing { font-size: 20px; color: #00ff00; margin-bottom: 15px; }
@@ -32,7 +22,7 @@
     <h1>KVideo 电视版 - 终极测试</h1>
     
     <div id="list"></div>
-
+    
     <div id="player-container">
         <div id="now-playing">准备播放...</div>
         <video id="player" controls autoplay></video>
@@ -44,27 +34,33 @@
         var player = document.getElementById("player");
         var nowPlaying = document.getElementById("now-playing");
 
-        // 我们直接把你刚刚抓到的真实数据写进来测试！
+        // 直接写死你的测试数据
         var testData = [
             {
-                title: "寻秦记 (直接播放测试)",
-                // 这就是你刚才抓出来的金钥匙！
-                url: "https://vv.jisuzyv.com/play/dNkxrV8e/index.m3u8" 
+                title: "寻秦记 (降级 HTTP 测试)",
+                // 【魔法二】将 https 改为了 http，防止老电视报错
+                url: "http://vv.jisuzyv.com/play/dNkxrV8e/index.m3u8" 
             }
         ];
 
-        // 渲染测试按钮
+        // 渲染按钮
         for (var i = 0; i < testData.length; i++) {
             var btn = document.createElement("button");
             btn.className = "video-btn";
             btn.innerHTML = testData[i].title;
             
+            // 绑定点击事件
             (function(videoUrl, videoTitle) {
                 btn.onclick = function() {
                     playerContainer.style.display = "block";
-                    nowPlaying.innerHTML = "当前正在播放：" + videoTitle;
+                    nowPlaying.innerHTML = "当前正在尝试连接服务器...";
                     
-                    // 老电视的核心神技：直接把 m3u8 喂给 src
+                    // 【魔法三】如果还是播放失败，会在屏幕上显示红色的错误代码
+                    player.onerror = function() {
+                        var errCode = player.error ? player.error.code : "未知";
+                        nowPlaying.innerHTML = "<span style='color:red;'>播放失败，错误代码：" + errCode + "</span>";
+                    };
+                    
                     player.src = videoUrl; 
                     player.play();
                 };
@@ -73,12 +69,10 @@
             listDiv.appendChild(btn);
         }
 
-        // 自动让按钮获取焦点，你的遥控器一按“确认”就能播！
+        // 自动让按钮获取焦点，方便遥控器立刻接管
         setTimeout(function() {
             var firstBtn = document.getElementsByClassName("video-btn")[0];
-            if (firstBtn) {
-                firstBtn.focus();
-            }
+            if (firstBtn) firstBtn.focus();
         }, 500);
     </script>
 </body>
