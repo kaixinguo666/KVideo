@@ -2,8 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="referrer" content="no-referrer">
-    <title>KVideo TV版</title>
+    <title>KVideo TV版 - 原生播放</title>
     <style>
         body { background-color: #000000; color: #ffffff; font-family: sans-serif; padding: 30px; }
         .video-btn { 
@@ -11,65 +10,51 @@
             margin: 10px; font-size: 24px; border: 4px solid transparent; 
             border-radius: 8px; cursor: pointer;
         }
-        /* 电视遥控器选中时的红色边框 */
+        /* 电视遥控器焦点 */
         .video-btn:focus { border-color: #ff0000; background-color: #555555; outline: none; }
-        #player-container { margin-top: 30px; width: 100%; max-width: 1000px; display: none; }
-        #player { width: 100%; background-color: #111; }
         #now-playing { font-size: 20px; color: #00ff00; margin-bottom: 15px; }
     </style>
 </head>
 <body>
-    <h1>KVideo 电视版 - 终极测试</h1>
-    
+    <h1>KVideo 电视版 - 呼叫原生播放器</h1>
+    <div id="now-playing">请选择视频...</div>
     <div id="list"></div>
-    
-    <div id="player-container">
-        <div id="now-playing">准备播放...</div>
-        <video id="player" controls autoplay></video>
-    </div>
 
     <script>
         var listDiv = document.getElementById("list");
-        var playerContainer = document.getElementById("player-container");
-        var player = document.getElementById("player");
         var nowPlaying = document.getElementById("now-playing");
 
-        // 直接写死你的测试数据
+        // 测试数据
         var testData = [
             {
-                title: "寻秦记 (降级 HTTP 测试)",
-                // 【魔法二】将 https 改为了 http，防止老电视报错
+                title: "寻秦记 (调用电视系统播放器)",
                 url: "http://vv.jisuzyv.com/play/dNkxrV8e/index.m3u8" 
             }
         ];
 
-        // 渲染按钮
         for (var i = 0; i < testData.length; i++) {
             var btn = document.createElement("button");
             btn.className = "video-btn";
             btn.innerHTML = testData[i].title;
             
-            // 绑定点击事件
             (function(videoUrl, videoTitle) {
                 btn.onclick = function() {
-                    playerContainer.style.display = "block";
-                    nowPlaying.innerHTML = "当前正在尝试连接服务器...";
+                    nowPlaying.innerHTML = "正在呼叫系统播放器打开：" + videoTitle;
                     
-                    // 【魔法三】如果还是播放失败，会在屏幕上显示红色的错误代码
-                    player.onerror = function() {
-                        var errCode = player.error ? player.error.code : "未知";
-                        nowPlaying.innerHTML = "<span style='color:red;'>播放失败，错误代码：" + errCode + "</span>";
-                    };
-                    
-                    player.src = videoUrl; 
-                    player.play();
+                    // 【核心魔法】判断是否在我们的 Android 壳子里
+                    if (window.AndroidApp) {
+                        // 如果在电视 App 里，把链接传给安卓系统！
+                        window.AndroidApp.playVideo(videoUrl);
+                    } else {
+                        // 如果在电脑浏览器里测试，弹窗提示
+                        alert("请在电视端 App 中点击，电脑端无法呼叫电视播放器。\n链接：" + videoUrl);
+                    }
                 };
             })(testData[i].url, testData[i].title);
 
             listDiv.appendChild(btn);
         }
 
-        // 自动让按钮获取焦点，方便遥控器立刻接管
         setTimeout(function() {
             var firstBtn = document.getElementsByClassName("video-btn")[0];
             if (firstBtn) firstBtn.focus();
