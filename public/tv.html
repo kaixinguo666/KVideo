@@ -135,11 +135,10 @@
     </div>
 
     <div class="sidebar" id="sidebar">
-        <!-- 左侧菜单，默认选中第一个 -->
-        <div class="nav-item focusable" data-type="nav" data-index="0">动作片</div>
-        <div class="nav-item focusable" data-type="nav" data-index="1">喜剧片</div>
-        <div class="nav-item focusable" data-type="nav" data-index="2">科幻片</div>
-        <div class="nav-item focusable" data-type="nav" data-index="3">连续剧</div>
+        <!-- 以后这里可以做分类切换，目前暂时只展示首页数据 -->
+        <div class="nav-item focusable" data-type="nav" data-index="0">最新推荐</div>
+        <div class="nav-item focusable" data-type="nav" data-index="1">电影</div>
+        <div class="nav-item focusable" data-type="nav" data-index="2">电视剧</div>
     </div>
 
     <div class="main-content">
@@ -160,20 +159,30 @@
         setInterval(updateTime, 1000);
         updateTime();
 
-        // --- 2. 模拟接口数据 (将这里换成你真实的 ajax 请求) ---
-        // 为了让你立马看到效果，这里使用了你之前提供的《寻秦记》数据结构
-        var mockData = [];
-        for (var i = 0; i < 20; i++) {
+        // --- 2. 模拟兜底数据 ---
+        var mockData = [
+            {
+                vod_name: "接口获取失败(兜底测试1)",
+                vod_pic: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/640px-Big_buck_bunny_poster_big.jpg",
+                vod_remarks: "100%兼容",
+                play_url: "http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4" 
+            },
+            {
+                vod_name: "接口获取失败(兜底测试2)",
+                vod_pic: "https://developer.apple.com/news/images/og/hls-logo-og.png",
+                vod_remarks: "基础编码",
+                play_url: "http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8"
+            }
+        ];
+        // 填充剩下的占位符
+        for (var i = 2; i < 20; i++) {
             mockData.push({
-                vod_name: "测试影片 " + (i + 1),
-                vod_pic: "https://img.jisuimage.com/cover/ef90aa6701fdb448885aef70d22b8476.jpg", // 寻秦记海报
-                vod_remarks: "1080P",
-                play_url: "http://vv.jisuzyv.com/play/dNkxrV8e/index.m3u8" // 真实的测试链接
+                vod_name: "占位影片 " + (i + 1),
+                vod_pic: "https://img.jisuimage.com/cover/ef90aa6701fdb448885aef70d22b8476.jpg", 
+                vod_remarks: "无数据",
+                play_url: ""
             });
         }
-        // 特别设置第一个为寻秦记真实数据
-        mockData[0].vod_name = "寻秦记";
-        mockData[0].vod_remarks = "正片 / 粤语";
 
         // --- 3. 渲染影片网格 ---
         var grid = document.getElementById('vod-grid');
@@ -192,7 +201,6 @@
 
                 var img = document.createElement('img');
                 img.className = 'vod-pic';
-                // 懒加载容错：如果图片加载失败显示灰色背景
                 img.src = item.vod_pic;
                 img.onerror = function() { this.style.display = 'none'; };
 
@@ -212,10 +220,10 @@
             initSpatialNavigation();
         }
 
-        // --- 4. 遥控器十字键焦点管理引擎 (核心算法) ---
-        var currentFocusArea = 'nav'; // 当前在左边导航('nav')还是右边海报('vod')
-        var currentNavIndex = 0;      // 导航的索引
-        var currentVodIndex = 0;      // 海报的索引
+        // --- 4. 遥控器十字键焦点管理引擎 ---
+        var currentFocusArea = 'nav'; 
+        var currentNavIndex = 0;      
+        var currentVodIndex = 0;      
         var navItems = [];
         var vodItems = [];
 
@@ -226,22 +234,19 @@
         }
 
         function updateFocus() {
-            // 清除所有焦点
             for (var i = 0; i < navItems.length; i++) navItems[i].className = 'nav-item focusable';
             for (var j = 0; j < vodItems.length; j++) vodItems[j].className = 'vod-card focusable';
 
-            // 设置新焦点
             if (currentFocusArea === 'nav') {
                 navItems[currentNavIndex].className = 'nav-item focusable focused';
-                grid.style.transform = 'translateY(0px)'; // 右侧区域复位
+                grid.style.transform = 'translateY(0px)'; 
             } else if (currentFocusArea === 'vod' && vodItems.length > 0) {
                 var targetVod = vodItems[currentVodIndex];
                 targetVod.className = 'vod-card focusable focused';
                 
-                // 页面自动向上滚动，防止下面的海报被遮挡
                 var row = Math.floor(currentVodIndex / columns);
                 if (row > 1) {
-                    var scrollY = (row - 1) * 320; // 320是大约一张卡片的高度加外边距
+                    var scrollY = (row - 1) * 320; 
                     grid.style.transform = 'translateY(-' + scrollY + 'px)';
                     grid.style.webkitTransform = 'translateY(-' + scrollY + 'px)';
                 } else {
@@ -251,38 +256,35 @@
             }
         }
 
-        // 监听遥控器按键
         document.onkeydown = function(e) {
             var key = e.keyCode || e.which;
-            // 37=左, 38=上, 39=右, 40=下, 13=确认(OK)
             
             if (currentFocusArea === 'nav') {
-                if (key === 40 && currentNavIndex < navItems.length - 1) currentNavIndex++; // 下
-                else if (key === 38 && currentNavIndex > 0) currentNavIndex--; // 上
-                else if (key === 39) { // 向右进入海报区
+                if (key === 40 && currentNavIndex < navItems.length - 1) currentNavIndex++; 
+                else if (key === 38 && currentNavIndex > 0) currentNavIndex--; 
+                else if (key === 39) { 
                     currentFocusArea = 'vod';
-                    // 默认跳到当前行的第一个
                     currentVodIndex = Math.floor(currentVodIndex / columns) * columns;
                 }
             } 
             else if (currentFocusArea === 'vod') {
-                if (key === 37) { // 左
+                if (key === 37) { 
                     if (currentVodIndex % columns === 0) {
-                        currentFocusArea = 'nav'; // 到最左边了，回到导航
+                        currentFocusArea = 'nav'; 
                     } else {
                         currentVodIndex--;
                     }
                 }
-                else if (key === 39 && currentVodIndex < vodItems.length - 1) { // 右
+                else if (key === 39 && currentVodIndex < vodItems.length - 1) { 
                     currentVodIndex++;
                 }
-                else if (key === 40 && currentVodIndex + columns < vodItems.length) { // 下
+                else if (key === 40 && currentVodIndex + columns < vodItems.length) { 
                     currentVodIndex += columns;
                 }
-                else if (key === 38) { // 上
+                else if (key === 38) { 
                     if (currentVodIndex >= columns) currentVodIndex -= columns;
                 }
-                else if (key === 13) { // 确认键播放
+                else if (key === 13) { 
                     var url = vodItems[currentVodIndex].getAttribute('data-url');
                     var title = vodItems[currentVodIndex].getAttribute('data-title');
                     playVideo(url, title);
@@ -293,16 +295,83 @@
 
         // --- 5. 呼叫安卓底层播放视频 ---
         function playVideo(url, title) {
+            if (!url) {
+                alert("无有效链接");
+                return;
+            }
             if (window.AndroidApp) {
-                // 呼叫你的 Android Studio 底层代码
                 window.AndroidApp.playVideo(url);
             } else {
-                alert("这是测试环境。\n在电视上，这会调用系统原生播放器播放：\n" + title + "\n" + url);
+                alert("测试环境呼叫：\n" + title + "\n" + url);
             }
         }
 
-        // 启动渲染
-        renderGrid(mockData);
+        // --- 6. 动态获取真实数据 (万能苹果CMS解析器) ---
+        function loadRealData() {
+            var loadingDiv = document.getElementById('loading');
+            
+            // 【重点】：这里已经填入了一个兼容性较好的非凡资源网接口
+            // 只要是以 /api.php/provide/vod/at/json 结尾的接口，下面的代码都能自动解析！
+            var apiUrl = "https://cj.ffzyapi.com/api.php/provide/vod/at/json"; 
+
+            loadingDiv.style.display = 'block'; 
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", apiUrl, true);
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    loadingDiv.style.display = 'none';
+                    if (xhr.status === 200) {
+                        try {
+                            var response = JSON.parse(xhr.responseText);
+                            var formattedData = [];
+                            
+                            // 苹果CMS 返回的视频列表通常在 "list" 字段里
+                            var list = response.list || response.data || []; 
+                            
+                            for (var i = 0; i < list.length; i++) {
+                                // 万能解析：把那串乱七八糟的播放链接，提取出第一集的真实网址
+                                var rawPlayUrl = list[i].vod_play_url || "";
+                                var finalPlayUrl = "";
+                                
+                                // 根据 # 分割集数
+                                var episodes = rawPlayUrl.split('#');
+                                if (episodes.length > 0) {
+                                    // 根据 $ 分割标题和链接，比如 "第01集$http://xxx.m3u8"
+                                    var parts = episodes[0].split('$');
+                                    // 拿到真正的网址
+                                    finalPlayUrl = parts.length > 1 ? parts[1] : parts[0];
+                                }
+
+                                formattedData.push({
+                                    vod_name: list[i].vod_name || "未知",
+                                    vod_pic: list[i].vod_pic || "",
+                                    vod_remarks: list[i].vod_remarks || "高清",
+                                    play_url: finalPlayUrl 
+                                });
+                            }
+                            
+                            if(formattedData.length > 0) {
+                                renderGrid(formattedData);
+                            } else {
+                                alert("数据为空");
+                                renderGrid(mockData);
+                            }
+                        } catch (e) {
+                            alert("万能解析器解析失败: " + e.message);
+                            renderGrid(mockData);
+                        }
+                    } else {
+                        // 如果因为跨域(CORS)或网址失效报错，退回测试数据
+                        renderGrid(mockData);
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        // --- 启动 APP ---
+        loadRealData();
         
     </script>
 </body>
