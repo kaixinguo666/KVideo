@@ -2,63 +2,308 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>KVideo TV版 - 原生播放</title>
+    <meta name="referrer" content="no-referrer">
+    <title>我的专属 TVBox</title>
     <style>
-        body { background-color: #000000; color: #ffffff; font-family: sans-serif; padding: 30px; }
-        .video-btn { 
-            background-color: #333333; color: white; padding: 15px 30px; 
-            margin: 10px; font-size: 24px; border: 4px solid transparent; 
-            border-radius: 8px; cursor: pointer;
+        /* 兼容老电视的 CSS，不使用任何现代变量和高级 Flex */
+        body { 
+            background-color: #1a1a2e; /* TVBox 经典的深色背景 */
+            color: #ffffff; 
+            font-family: sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; /* 隐藏滚动条，用 JS 控制滚动 */
         }
-        /* 电视遥控器焦点 */
-        .video-btn:focus { border-color: #ff0000; background-color: #555555; outline: none; }
-        #now-playing { font-size: 20px; color: #00ff00; margin-bottom: 15px; }
+
+        /* 顶部标题栏 */
+        .header {
+            height: 70px;
+            background-color: #16213e;
+            padding: 0 40px;
+            line-height: 70px;
+            font-size: 28px;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 10;
+        }
+        .time { float: right; font-size: 20px; color: #aaaaaa; }
+
+        /* 左侧分类导航 */
+        .sidebar {
+            position: absolute;
+            left: 0;
+            top: 70px;
+            bottom: 0;
+            width: 200px;
+            background-color: #0f3460;
+            padding-top: 20px;
+        }
+        .nav-item {
+            display: block;
+            padding: 15px 30px;
+            font-size: 22px;
+            color: #cccccc;
+            text-decoration: none;
+            border-left: 6px solid transparent;
+            margin-bottom: 10px;
+        }
+        /* 遥控器选中左侧导航时的状态 */
+        .nav-item.focused {
+            background-color: #e94560;
+            color: white;
+            border-left-color: #ffffff;
+            font-weight: bold;
+        }
+
+        /* 右侧海报墙区域 */
+        .main-content {
+            position: absolute;
+            left: 200px;
+            top: 70px;
+            right: 0;
+            bottom: 0;
+            padding: 30px;
+            overflow: hidden;
+        }
+
+        /* 影片网格布局 (兼容老浏览器的 inline-block) */
+        .grid-container {
+            width: 100%;
+            position: relative;
+            transition: transform 0.3s ease; /* 页面上下平滑滚动 */
+        }
+        .vod-card {
+            display: inline-block;
+            width: 17%;
+            margin: 0 1.5% 30px 1.5%;
+            vertical-align: top;
+            text-align: center;
+            border: 4px solid transparent;
+            border-radius: 8px;
+            padding: 5px;
+            box-sizing: border-box;
+            background-color: #16213e;
+        }
+        .vod-pic {
+            width: 100%;
+            height: 220px; /* 海报高度 */
+            background-color: #333;
+            border-radius: 4px;
+            object-fit: cover; /* 保证图片不变形 */
+        }
+        .vod-name {
+            margin-top: 10px;
+            font-size: 18px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .vod-remarks {
+            font-size: 14px;
+            color: #e94560;
+            margin-top: 5px;
+        }
+
+        /* 遥控器选中影片时的状态（核心！） */
+        .vod-card.focused {
+            border-color: #e94560;
+            background-color: #ffffff;
+            color: #000000;
+            transform: scale(1.05); /* 微微放大 */
+            -webkit-transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(233, 69, 96, 0.5);
+            z-index: 2;
+            position: relative;
+        }
+        .vod-card.focused .vod-remarks { color: #d62828; }
+
+        /* 全屏加载提示 */
+        #loading {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8); color: white;
+            font-size: 30px; line-height: 100vh; text-align: center;
+            z-index: 100; display: none;
+        }
     </style>
 </head>
 <body>
-    <h1>KVideo 电视版 - 呼叫原生播放器</h1>
-    <div id="now-playing">请选择视频...</div>
-    <div id="list"></div>
+
+    <div class="header">
+        KVideo Max <span style="font-size: 16px; color: #e94560; margin-left: 10px;">TVBox 专版</span>
+        <div class="time" id="clock">00:00</div>
+    </div>
+
+    <div class="sidebar" id="sidebar">
+        <!-- 左侧菜单，默认选中第一个 -->
+        <div class="nav-item focusable" data-type="nav" data-index="0">动作片</div>
+        <div class="nav-item focusable" data-type="nav" data-index="1">喜剧片</div>
+        <div class="nav-item focusable" data-type="nav" data-index="2">科幻片</div>
+        <div class="nav-item focusable" data-type="nav" data-index="3">连续剧</div>
+    </div>
+
+    <div class="main-content">
+        <div class="grid-container" id="vod-grid">
+            <!-- 影片海报会在这里生成 -->
+        </div>
+    </div>
+
+    <div id="loading">正在获取影片数据...</div>
 
     <script>
-        var listDiv = document.getElementById("list");
-        var nowPlaying = document.getElementById("now-playing");
+        // --- 1. 时钟功能 ---
+        function updateTime() {
+            var now = new Date();
+            var h = now.getHours(); var m = now.getMinutes();
+            document.getElementById('clock').innerHTML = (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m);
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
 
-        // 测试数据
-        var testData = [
-            {
-                title: "寻秦记 (调用电视系统播放器)",
-                url: "http://vv.jisuzyv.com/play/dNkxrV8e/index.m3u8" 
+        // --- 2. 模拟接口数据 (将这里换成你真实的 ajax 请求) ---
+        // 为了让你立马看到效果，这里使用了你之前提供的《寻秦记》数据结构
+        var mockData = [];
+        for (var i = 0; i < 20; i++) {
+            mockData.push({
+                vod_name: "测试影片 " + (i + 1),
+                vod_pic: "https://img.jisuimage.com/cover/ef90aa6701fdb448885aef70d22b8476.jpg", // 寻秦记海报
+                vod_remarks: "1080P",
+                play_url: "http://vv.jisuzyv.com/play/dNkxrV8e/index.m3u8" // 真实的测试链接
+            });
+        }
+        // 特别设置第一个为寻秦记真实数据
+        mockData[0].vod_name = "寻秦记";
+        mockData[0].vod_remarks = "正片 / 粤语";
+
+        // --- 3. 渲染影片网格 ---
+        var grid = document.getElementById('vod-grid');
+        var columns = 5; // 每行 5 个海报
+
+        function renderGrid(data) {
+            grid.innerHTML = '';
+            for (var i = 0; i < data.length; i++) {
+                var item = data[i];
+                var card = document.createElement('div');
+                card.className = 'vod-card focusable';
+                card.setAttribute('data-type', 'vod');
+                card.setAttribute('data-index', i);
+                card.setAttribute('data-url', item.play_url);
+                card.setAttribute('data-title', item.vod_name);
+
+                var img = document.createElement('img');
+                img.className = 'vod-pic';
+                // 懒加载容错：如果图片加载失败显示灰色背景
+                img.src = item.vod_pic;
+                img.onerror = function() { this.style.display = 'none'; };
+
+                var name = document.createElement('div');
+                name.className = 'vod-name';
+                name.innerHTML = item.vod_name;
+
+                var remarks = document.createElement('div');
+                remarks.className = 'vod-remarks';
+                remarks.innerHTML = item.vod_remarks;
+
+                card.appendChild(img);
+                card.appendChild(name);
+                card.appendChild(remarks);
+                grid.appendChild(card);
             }
-        ];
-
-        for (var i = 0; i < testData.length; i++) {
-            var btn = document.createElement("button");
-            btn.className = "video-btn";
-            btn.innerHTML = testData[i].title;
-            
-            (function(videoUrl, videoTitle) {
-                btn.onclick = function() {
-                    nowPlaying.innerHTML = "正在呼叫系统播放器打开：" + videoTitle;
-                    
-                    // 【核心魔法】判断是否在我们的 Android 壳子里
-                    if (window.AndroidApp) {
-                        // 如果在电视 App 里，把链接传给安卓系统！
-                        window.AndroidApp.playVideo(videoUrl);
-                    } else {
-                        // 如果在电脑浏览器里测试，弹窗提示
-                        alert("请在电视端 App 中点击，电脑端无法呼叫电视播放器。\n链接：" + videoUrl);
-                    }
-                };
-            })(testData[i].url, testData[i].title);
-
-            listDiv.appendChild(btn);
+            initSpatialNavigation();
         }
 
-        setTimeout(function() {
-            var firstBtn = document.getElementsByClassName("video-btn")[0];
-            if (firstBtn) firstBtn.focus();
-        }, 500);
+        // --- 4. 遥控器十字键焦点管理引擎 (核心算法) ---
+        var currentFocusArea = 'nav'; // 当前在左边导航('nav')还是右边海报('vod')
+        var currentNavIndex = 0;      // 导航的索引
+        var currentVodIndex = 0;      // 海报的索引
+        var navItems = [];
+        var vodItems = [];
+
+        function initSpatialNavigation() {
+            navItems = document.querySelectorAll('.nav-item');
+            vodItems = document.querySelectorAll('.vod-card');
+            updateFocus();
+        }
+
+        function updateFocus() {
+            // 清除所有焦点
+            for (var i = 0; i < navItems.length; i++) navItems[i].className = 'nav-item focusable';
+            for (var j = 0; j < vodItems.length; j++) vodItems[j].className = 'vod-card focusable';
+
+            // 设置新焦点
+            if (currentFocusArea === 'nav') {
+                navItems[currentNavIndex].className = 'nav-item focusable focused';
+                grid.style.transform = 'translateY(0px)'; // 右侧区域复位
+            } else if (currentFocusArea === 'vod' && vodItems.length > 0) {
+                var targetVod = vodItems[currentVodIndex];
+                targetVod.className = 'vod-card focusable focused';
+                
+                // 页面自动向上滚动，防止下面的海报被遮挡
+                var row = Math.floor(currentVodIndex / columns);
+                if (row > 1) {
+                    var scrollY = (row - 1) * 320; // 320是大约一张卡片的高度加外边距
+                    grid.style.transform = 'translateY(-' + scrollY + 'px)';
+                    grid.style.webkitTransform = 'translateY(-' + scrollY + 'px)';
+                } else {
+                    grid.style.transform = 'translateY(0px)';
+                    grid.style.webkitTransform = 'translateY(0px)';
+                }
+            }
+        }
+
+        // 监听遥控器按键
+        document.onkeydown = function(e) {
+            var key = e.keyCode || e.which;
+            // 37=左, 38=上, 39=右, 40=下, 13=确认(OK)
+            
+            if (currentFocusArea === 'nav') {
+                if (key === 40 && currentNavIndex < navItems.length - 1) currentNavIndex++; // 下
+                else if (key === 38 && currentNavIndex > 0) currentNavIndex--; // 上
+                else if (key === 39) { // 向右进入海报区
+                    currentFocusArea = 'vod';
+                    // 默认跳到当前行的第一个
+                    currentVodIndex = Math.floor(currentVodIndex / columns) * columns;
+                }
+            } 
+            else if (currentFocusArea === 'vod') {
+                if (key === 37) { // 左
+                    if (currentVodIndex % columns === 0) {
+                        currentFocusArea = 'nav'; // 到最左边了，回到导航
+                    } else {
+                        currentVodIndex--;
+                    }
+                }
+                else if (key === 39 && currentVodIndex < vodItems.length - 1) { // 右
+                    currentVodIndex++;
+                }
+                else if (key === 40 && currentVodIndex + columns < vodItems.length) { // 下
+                    currentVodIndex += columns;
+                }
+                else if (key === 38) { // 上
+                    if (currentVodIndex >= columns) currentVodIndex -= columns;
+                }
+                else if (key === 13) { // 确认键播放
+                    var url = vodItems[currentVodIndex].getAttribute('data-url');
+                    var title = vodItems[currentVodIndex].getAttribute('data-title');
+                    playVideo(url, title);
+                }
+            }
+            updateFocus();
+        };
+
+        // --- 5. 呼叫安卓底层播放视频 ---
+        function playVideo(url, title) {
+            if (window.AndroidApp) {
+                // 呼叫你的 Android Studio 底层代码
+                window.AndroidApp.playVideo(url);
+            } else {
+                alert("这是测试环境。\n在电视上，这会调用系统原生播放器播放：\n" + title + "\n" + url);
+            }
+        }
+
+        // 启动渲染
+        renderGrid(mockData);
+        
     </script>
 </body>
 </html>
