@@ -168,19 +168,18 @@
                 play_url: "http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4" 
             }
         ];
-        // 填充剩下的占位符
         for (var i = 1; i < 20; i++) {
             mockData.push({
-                vod_name: "暂无数据 " + (i + 1),
+                vod_name: "请检查网络 " + (i + 1),
                 vod_pic: "https://img.jisuimage.com/cover/ef90aa6701fdb448885aef70d22b8476.jpg", 
-                vod_remarks: "请检查网络",
+                vod_remarks: "获取失败",
                 play_url: ""
             });
         }
 
         // --- 3. 渲染影片网格 ---
         var grid = document.getElementById('vod-grid');
-        var columns = 5; // 每行 5 个海报
+        var columns = 5; 
 
         function renderGrid(data) {
             grid.innerHTML = '';
@@ -300,20 +299,21 @@
             }
         }
 
-        // --- 6. 动态获取真实数据 (多节点自动轮询引擎) ---
+        // --- 6. 动态获取真实数据 (万能代理引擎版) ---
         function loadRealData() {
             var loadingDiv = document.getElementById('loading');
             
-            // 【重点】：全部采用 http:// 避免老电视的 SSL 安全验证拦截
+            // 【究极黑科技：跨域代理】
+            // 通过 allorigins 和 corsproxy 代理服务器中转请求
+            // 完美避开电脑浏览器的 CORS 跨域拦截，以及老电视的 SSL 证书错误！
             var apiNodes = [
-                "http://cj.ffzyapi.com/api.php/provide/vod/at/json", // 非凡资源节点
-                "http://cj.lxgcj.com/api.php/provide/vod/at/json",   // 量子资源节点
-                "http://www.hongniuzy2.com/api.php/provide/vod/at/json" // 红牛资源节点
+                "https://api.allorigins.win/raw?url=" + encodeURIComponent("http://cj.ffzyapi.com/api.php/provide/vod/at/json"),
+                "https://corsproxy.io/?" + encodeURIComponent("http://cj.lxgcj.com/api.php/provide/vod/at/json"),
+                "https://api.allorigins.win/raw?url=" + encodeURIComponent("http://www.hongniuzy2.com/api.php/provide/vod/at/json")
             ];
             
             var currentNodeIndex = 0;
 
-            // 递归请求节点，失败自动尝试下一个
             function tryNextNode() {
                 if (currentNodeIndex >= apiNodes.length) {
                     loadingDiv.innerHTML = "所有影视节点连接失败，已载入测试数据。";
@@ -326,14 +326,13 @@
 
                 var apiUrl = apiNodes[currentNodeIndex];
                 loadingDiv.style.display = 'block'; 
-                loadingDiv.innerHTML = "正在连接影视节点 " + (currentNodeIndex + 1) + "...";
+                loadingDiv.innerHTML = "正在通过代理引擎连接影视节点 " + (currentNodeIndex + 1) + "...";
 
                 var xhr = new XMLHttpRequest();
                 xhr.open("GET", apiUrl, true);
                 
                 xhr.onreadystatechange = function() {
                     if (xhr.readyState === 4) {
-                        // 状态码为 200 且拿到了数据
                         if (xhr.status === 200) {
                             try {
                                 var response = JSON.parse(xhr.responseText);
@@ -342,7 +341,6 @@
                                 if(list.length > 0) {
                                     var formattedData = [];
                                     for (var i = 0; i < list.length; i++) {
-                                        // 提取第一集播放直链
                                         var rawPlayUrl = list[i].vod_play_url || "";
                                         var finalPlayUrl = "";
                                         var episodes = rawPlayUrl.split('#');
@@ -354,32 +352,28 @@
                                         formattedData.push({
                                             vod_name: list[i].vod_name || "未知",
                                             vod_pic: list[i].vod_pic || "",
-                                            vod_remarks: list[i].vod_remarks || "高清",
+                                            vod_remarks: list[i].vod_remarks || "更新中",
                                             play_url: finalPlayUrl 
                                         });
                                     }
                                     
-                                    // 成功渲染数据，隐藏 Loading
                                     loadingDiv.style.display = 'none';
                                     renderGrid(formattedData);
-                                    return; // 结束递归
+                                    return; // 成功获取，结束轮询
                                 } else {
-                                    throw new Error("无数据");
+                                    throw new Error("接口返回数据为空");
                                 }
                             } catch (e) {
-                                // 解析失败，尝试下一个节点
                                 currentNodeIndex++;
                                 tryNextNode();
                             }
                         } else {
-                            // HTTP 状态非 200 (可能是老电视跨域拦截)，尝试下一个
                             currentNodeIndex++;
                             tryNextNode();
                         }
                     }
                 };
                 
-                // 网络错误直接捕获
                 xhr.onerror = function() {
                     currentNodeIndex++;
                     tryNextNode();
